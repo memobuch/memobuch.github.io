@@ -1,0 +1,618 @@
+
+
+<!doctype html>
+<html lang="de" prefix="og: https://ogp.me/ns# dc: http://purl.org/dc/terms schema_org: https://schema.org/">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta name="description" content="MEMO ist ein digitales Denkmal, das sich der Dokumentation und Visualisierung der Grazer NS-Opfer widmet." />
+<meta name="publisher" content="DDH Zentrum für Informationsmodellierung - Austrian Centre for Digital Humanities" />
+<meta name="content-language" content="de" />
+<meta name="author" content="Sebastian David Schiller-Stoff" />
+<meta property="og:author" content="Sebastian David Schiller-Stoff" />
+<meta property="og:type" content="website" />
+<meta property="dc:creator" content="Sebastian David Stoff" />
+<meta name="author" content="Sebastian David Schiller-Stoff" />
+<meta name="author" content="Sebastian Stoff" />
+<meta property="og:description" name="description"
+    content="MEMO ist ein digitales Denkmal, das sich der Dokumentation und Visualisierung der Grazer NS-Opfer widmet." />
+<meta property="og:locale" content="de" />
+<meta property="og:author" name="author" content="Sebastian David Schiller-Stoff" />
+<meta property="og:author" name="author" content="Sebastian Stoff" />
+<meta property="dc:creator" name="author" content="Sebastian David Schiller-Stoff" />
+<meta property="dc:creator" name="author" content="Sebastian Stoff" />
+<meta property="og:url" content="ns-opfer-graz.at" />
+<meta property="og:type" content="website" />
+<meta property="dc:type" content="website" />
+<meta name="description"
+    content="MEMO ist ein digitales Denkmal, das sich der Dokumentation und Visualisierung der Grazer NS-Opfer widmet." />
+<meta name="keywords"
+    content="Digital Humanities, Web Development, Software Development, Geographical Information Systems (GIS), Digital Editions, Linked Data, Frontend Development, Economic History, Art History, Natural Language Processing (NLP), History, GIS, HGIS, Semantic Web, Information Design, Information Modelling, Web Engineering, Search Engine Optimization (SEO), Data Science, Digital Archives, Cultural Heritage, Web of Data, Web 2.0, Knowledge Engineering, AI" />
+<meta name="schema_org:keywords"
+    content="Digital Humanities, Web Development, Software Development, Geographical Information Systems (GIS), Digital Editions, Linked Data, Frontend Development, Economic History, Art History, Natural Language Processing (NLP), History, GIS, HGIS, Semantic Web, Information Design, Information Modelling, Web Engineering, Search Engine Optimization (SEO), Data Science, Digital Archives, Cultural Heritage, Web of Data, Web 2.0, Knowledge Engineering, AI" />
+<meta name="twitter:title" content="Sebastian David Schiller-Stoff" />
+<meta name="twitter:description"
+    content="Sebastian David Schiller-Stoff (Sebastian Stoff). Digital humanist specialised in research software engineering and digital archiving at DDH (former: ZIM) University of Graz." />
+
+    <title>memo project</title>
+    <link rel="manifest" href="../../static/manifest.json"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="../../static/css/project.css" rel="stylesheet">
+    
+    <script src="../../static/js/SaxonJS3-beta-1.rt.js"></script>
+
+    
+    
+
+
+<script>
+
+    // TODO move to template include? / macro?
+    window.gams_frog = {
+    "_root_path": "../..",
+    "_template_name": "object",
+    "_template_file_name": "object.j2",
+    "env": {
+        "DANGEROUS_GAMS3_PRODUCTION_ORIGIN": "https://gams.uni-graz.at",
+        "DANGEROUS_GAMS5_PRODUCTION_ORIGIN": "https://gams.uni-graz.at",
+        "GAMS_API_ORIGIN": "https://gams-staging.uni-graz.at",
+        "IIIF_IMAGE_SERVER_ORIGIN": "https://gams-staging.uni-graz.at",
+        "GAMS_FROG_MODE": "build",
+        "PROJECT_ABBR": "memo",
+        "UI_TITLE": "MEMO WebUI",
+        "UI_VERSION": "0.0.0"
+    }
+    }
+
+    // utility function for gams-frog
+    window.gams_frog.utils = {}
+    window.gams_frog.utils.isProduction = () => {
+    return window.gams_frog.env.GAMS_FROG_MODE === "build";
+    }
+
+</script>
+
+<script>
+
+    // first some global variables
+    window.gams_frog.i18n = {};
+    window.gams_frog.i18n.defaultISOLanguage = 'de';
+
+    (() => {
+
+        // then function definitions
+
+
+        /**
+        * Parses a data-i18n value into translation targets.
+        * Syntax: 
+        *   "some.key"                        → innerHTML
+        *   "[alt]some.key"                   → attribute
+        *   "[alt]some.key;[title]other.key"  → multiple attributes
+        *   "[alt]some.key;content.key"       → attribute + innerHTML
+        * 
+        * @param {string} raw - the data-i18n attribute value
+        * @returns {Array<{attr: string|null, key: string}>}
+        */
+        function parseI18nValue(raw) {
+            const targets = [];
+            for (const part of raw.split(';')) {
+                const trimmed = part.trim();
+                if (!trimmed) continue;
+
+                const match = trimmed.match(/^\[(.+?)\](.+)$/);
+                if (match) {
+                    targets.push({ attr: match[1], key: match[2] });
+                } else if (trimmed.includes('[')) {
+                    // likely malformed — bracket present but didn't match pattern
+                    if(!gams_frog.utils.isProduction()){
+                        console.warn(`gams_frog-i18n: Malformed data-i18n value: "${trimmed}"`);
+                    }
+                } else {
+                    targets.push({ attr: null, key: trimmed });
+                }
+            }
+            return targets;
+        }
+
+
+        //i18n whitelist
+        const ALLOWED_I18N_ATTRS = new Set([
+        'alt', 'title', 'placeholder', 'aria-label', 'aria-description'
+        ]);
+
+        /**
+        * Applies i18n translation for given data-i18n attribute value
+        * and value stored in correspondent translation file.
+        *
+        */
+        function applyTranslationToElement(element, translationMap) {
+            const targets = parseI18nValue(element.getAttribute('data-i18n'));
+            
+            for (const target of targets) {
+                const value = translationMap[target.key];
+                if (!value) {
+                    if (!gams_frog.utils.isProduction()) {
+                        console.error(`gams_frog-i18n: No translation for key: "${target.key}"`, element);
+                    }
+                    continue;
+                }
+
+                if (target.attr === null) {
+                    element.innerHTML = value;
+                } else if (ALLOWED_I18N_ATTRS.has(target.attr)) {
+                    element.setAttribute(target.attr, value);
+                } else {
+                    if(!gams_frog.utils.isProduction()){
+                        console.warn(`gams_frog-i18n: Attribute "${target.attr}" not allowed. Skipping.`);
+                    }
+                }
+            }
+        }
+
+
+        let cachedTranslations = null;
+        let translationPromise = null;
+
+        async function loadTranslations(language) {
+            if (cachedTranslations) return cachedTranslations;
+            if (translationPromise) return translationPromise;
+
+            const url = `${gams_frog._root_path}/static/i18n/${language}.json`;
+            
+            translationPromise = (async () => {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        console.error(`gams_frog-i18n: Failed to fetch ${url} (HTTP ${response.status})`);
+                        return null;
+                    }
+                    cachedTranslations = await response.json();
+                    return cachedTranslations;
+                } catch (error) {
+                    console.error(`gams_frog-i18n: Failed to fetch ${url}`, error);
+                    return null;
+                }
+            })();
+
+            return translationPromise;
+        }
+
+        /**
+        * Translates all elements with the data-i18n attribute according
+        * to language (lang url parameter) defined in the related i18n file. 
+        * @param containerElem All translations / rewritings will happen inside this container defaults to document 
+        *
+        * 1. data-i18n attribute on any html element will be translated (based on ids)
+        * 2. query parameter 'lang' (should be ISO code - e.g. 'de', 'en') is being used to decide for the translation files
+        * 3. additional translation files in i18n folder in static (mus also follow iso code e.g. "de.json")
+        * 4. internal links will be rewritten to keep current query parameters (like lang)
+        */
+        window.gams_frog.i18n.translate = async (containerElem) => {
+            if (!containerElem) containerElem = document;
+
+            const defaultLanguage = window.gams_frog.i18n.defaultISOLanguage || 'de';
+            const currentLanguage = new URLSearchParams(window.location.search).get('lang') || defaultLanguage;
+
+            const translationMap = await loadTranslations(currentLanguage);
+            if (!translationMap) {
+                if (!gams_frog.utils.isProduction()) {
+                    console.error("No translations for language '" + currentLanguage + " found!");
+                }
+                return;
+            };
+
+            // translate elements
+            const elements = containerElem.querySelectorAll('[data-i18n]');
+            elements.forEach(el => applyTranslationToElement(el, translationMap));
+
+            if (!gams_frog.utils.isProduction()) {
+                console.debug("gams_frog-i18n: Translated elements:", elements.length);
+            }
+
+            // rewrite internal links to maintain lang parameter
+            if (currentLanguage === defaultLanguage) return;
+
+            let rewroteCount = 0;
+            containerElem.querySelectorAll('a[href]').forEach(link => {
+                try {
+                    const url = new URL(link.href, window.location.origin);
+                    if (url.origin !== window.location.origin) return;
+                    // if lang was explicetily set -> keep it! (e.g. when needing a language toggle)
+                    if(url.searchParams.get('lang'))return;
+                    url.searchParams.set('lang', currentLanguage);
+                    link.href = url.toString();
+                    rewroteCount++;
+                } catch (e) {
+                    if (!gams_frog.utils.isProduction()) {
+                        console.warn("gams_frog-i18n: Malformed href:", link);
+                    }
+                }
+            });
+
+            if (!gams_frog.utils.isProduction()) {
+                console.debug("gams_frog-i18n: Rewrote internal links:", rewroteCount);
+            }
+        };
+
+    })();
+
+    
+
+</script>
+
+  </head>
+  <body>
+    <header class="bg-light">
+      <div class="row">
+        <div class="col-xl-1">
+          <img width="120" src="../../static/img/main_logo.jpg">
+        </div>
+        <div class="col-xl-6">
+          <div class="mt-4">
+            <h1 data-i18n="header.title" class="h4">Das Digitale Gedenkbuch der Grazer NS-Opfer</h1>
+            <small data-i18n="header.description">MEMO ist ein digitales Denkmal, das sich der Dokumentation und Visualisierung der Grazer NS-Opfer widmet.</small>
+          </div>
+        </div>
+      </div>
+    </header>
+    <nav class="navbar bd-navbar navbar-expand-lg mb-3 sticky-top bg-light border border-3 border-start-0 border-end-0">
+  <div class="container-fluid">
+    
+    <button class="navbar-toggler text-light" type="button" data-bs-toggle="collapse"
+      data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+      aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon text-light"></span>
+    </button> 
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a data-active-template="project" class="nav-link" aria-current="page" href="../..">MEMO</a>
+        </li>
+        <li class="nav-item">
+          <a data-i18n="nav.map" data-active-template="pages/map" class="nav-link" aria-current="page" href="../../map.html">Karte</a>
+        </li>
+        <li class="nav-item">
+          <a data-i18n="nav.biographies" data-active-template="object-list" class="nav-link" aria-current="page" href="../../objects/">Biographien</a>
+        </li>
+        <li class="nav-item">
+          <a data-i18n="nav.places" data-active-template="object-list" class="nav-link disabled" aria-current="page" href="../../objects/">Erinnerungsorte</a>
+        </li>
+        <li class="nav-item dropdown">
+          <a data-i18n="nav.project" class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Projekt
+          </a>
+          <ul class="dropdown-menu">
+            <li><a data-i18n="nav.about" class="dropdown-item" href="../../about.html">About</a></li>
+            <li><a data-i18n="nav.imprint" class="dropdown-item" href="../../imprint.html">Impressum</a></li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li><a data-i18n="nav.datamodel" class="dropdown-item" href="../../datamodel.html">Datenmodell</a></li>
+          </ul>
+        </li>
+         <li class="nav-item">
+          <a data-i18n="nav.analysis" data-active-template="pages/geobrowser" class="nav-link disabled" aria-current="page" href="../../geobrowser.html">Analyse</a>
+        </li>
+      </ul>
+      <ul class="navbar-nav me-2">
+        <li class="nav-item">
+          <a class="nav-link lang-switch" data-lang="de" href="#">DE</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link lang-switch" data-lang="en" href="#">EN</a>
+        </li>
+      </ul>
+      <div class="d-flex" role="search" method="get" action="../../search.html">
+        <a data-i18n="nav.search" class="btn btn-secondary" href="../../objects/" disabled>Suche</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<script>
+
+  // set active nav link
+  (() => {
+    let selector = `nav a[data-active-template='${gams_frog._template_name}']`
+    let navLink = document.querySelector(selector);
+
+    // Debugging information only if in development using jinja2 conditionals
+    
+
+    if(!navLink){
+      return;
+    }
+    document.querySelector(selector).classList.add("active");
+  })();
+
+  // set active language
+  (() => {
+    const currentLang = new URLSearchParams(window.location.search).get('lang') 
+                        || 'de';
+    
+    document.querySelectorAll('.lang-switch').forEach(link => {
+      const targetLang = link.dataset.lang;
+      
+      // build href preserving current path and other params
+      const params = new URLSearchParams(window.location.search);
+      params.set('lang', targetLang);
+      link.href = window.location.pathname + '?' + params.toString();
+      
+      // mark the active language
+      if (targetLang === currentLang) {
+        link.classList.add('active', 'fw-bold');
+        link.setAttribute('aria-current', 'true');
+      }
+    });
+  })();
+</script>
+    <main class="container-fluid" id="main-container">
+    
+
+
+    
+
+
+
+<h1 class="h3 fw-light">David Stern </h1>
+<p class="pb-0 mb-1">Information zu einer einzelnen Person erfasst im MEMO Projekt.</p>
+<div>
+    <a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/RDF.xml/content"><img alt="RDF" height="30" id="rdf" src="https://gams.uni-graz.at/templates/img/RDF_icon.png" title="RDF"></a> 
+    <a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/DC.xml/content"><img alt="RDF" height="30" id="rdf" src="https://upload.wikimedia.org/wikipedia/commons/7/7e/DCMI-logo.svg" title="DC"></a>
+    <a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299"><img alt="RDF" height="30" id="rdf" src="https://gams.uni-graz.at/templates/img/gams_solo.png" title="Object metadata in the CMS system"></a>
+</div>
+
+<ul class="mt-2">
+    
+    <li><a data-i18n="jüdischeopfer_jüdisch" target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects?tags=jüdischeopfer_jüdisch">jüdischeopfer_jüdisch</a></li>
+    
+    <li><a data-i18n="männlich" target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects?tags=männlich">männlich</a></li>
+    
+</ul>
+<div>
+    <hr/>
+    <ul class="nav nav-pills nav-fill" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home-tab-pane" type="button" role="tab" aria-controls="home-tab-pane" aria-selected="true">Übersicht</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile-tab-pane" type="button" role="tab" aria-controls="profile-tab-pane" aria-selected="false">Bildanalyse</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="contact-tab" data-bs-toggle="tab" data-bs-target="#contact-tab-pane" type="button" role="tab" aria-controls="contact-tab-pane" aria-selected="false">Kartenansicht</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="disabled-tab" data-bs-toggle="tab" data-bs-target="#disabled-tab-pane" type="button" role="tab" aria-controls="disabled-tab-pane" aria-selected="false">Forschungsdaten</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="disabled-tab" data-bs-toggle="tab" data-bs-target="#derla-tab-pane" type="button" role="tab" aria-controls="derla-tab-pane" aria-selected="false">DERLA-Zeichen</button>
+        </li>
+    </ul>
+    
+    <style>
+        ul#myTab button {
+            color: black;
+        }
+    
+        button.active {
+            background-color: lightblue !important;
+            color: black !important;
+        }
+    </style>
+    <br/>
+    <div class="tab-content bg-white" id="myTabContent">
+        <div class="tab-pane fade show active" id="home-tab-pane" role="tabpanel" aria-labelledby="home-tab" tabindex="0">
+            <div class="row">
+        <div class="col">
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                <div class="col">
+                    <div class="card border">
+                        <div class="card-body">
+                            <h5 class="card-title h4">Biografie</h5>
+                            <p class="card-text">David Stern: geboren 10.6.1859 in Güssing, gestorben 14.12.1942 in Jugoslawien. David Stern war der Sohn von Jakob und Johanna Stern (geb. Morgenstern) und wohnte seit den 1870er Jahren in Graz. Nach der Schule in Graz absolvierte Stern eine Lehre im Altwarengeschäft von Adolf Politzer. Als dieser starb, heiratete er 1887 dessen Witwe Charlotte (geb. Rosenberg) und übernahm auch den Altwarenhandel, den er weiter ausbaute und unter seinem Namen weiterführte. Gemeinsam mit ihr war er der Vater von Olga und Else (verh. Lang). Gemeinsam mit seiner Frau und den Kindern wohnte er vor dem 2. Weltkrieg im barocken Falkenhof am Lazarettgürtel 77 in Graz , wo sich seit 1890 auch der Altwarenbetrieb der Familie Stern befand. David Stern war innerhalb der IKG in verschiedenen Funktionen aktiv – so war er u.a. in den Jahren von 1922 bis 1926 Präsident der IKG Graz. Nach der Machtübernahme der Nationalsozialisten wurde Stern die Gewerbeberechtigung entzogen, der Betrieb „arisiert“ und David Stern und seine Frau mussten im Februar 1939 zwangsweise nach Wien übersiedeln. Dort wohnten sie in einer Sammelwohnung in der Rembrandtstraße 21/12. 1940 flohen die bereits 80jährigen illegal nach Jugoslawien, wo seine Frau noch vor dem Überfall der deutschen Wehrmacht im April 1941 starb. Er wurde im Dezember 1942 bei einer Razzia der Nationalsozialisten ermordet.</p>
+                        </div>
+                        <div class="card-footer">
+                            <small class="text-body-secondary">&copy; Heimo Halbrainer;Gerald Lamprecht</small>
+                        </div>
+                    </div>
+                </div>
+                
+                
+                    
+                
+                    
+                
+                    
+                
+                    
+                
+                    
+                
+            </div>
+        </div>
+    </div>
+        </div>
+        <div class="tab-pane fade" id="profile-tab-pane" role="tabpanel" aria-labelledby="profile-tab" tabindex="0">
+            
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tify@0.34.4/dist/tify.css">
+<div id="tify" style="height: 100vh"></div>
+<script src="../../static/js/iiif/iiifManifestv3Builder.js"></script>
+<script type="module">
+    import Tify from 'https://cdn.jsdelivr.net/npm/tify@0.34.5/dist/tify.js'
+
+    (async () => {
+        let manifestBuilder = IIIFManifestBuilder(
+            "https://gams.uni-graz.at",
+            "https://gams-staging.uni-graz.at",
+            "https://gams-staging.uni-graz.at"
+        );
+        let manifest = await manifestBuilder.build("memo", "memo.person.299");
+        let manifestAsString = JSON.stringify(manifest);
+        let manifestBlobUrl = URL.createObjectURL(
+            new Blob([manifestAsString], { type: 'application/json' })
+        );
+        
+        // Initialize Tify with the manifest Blob URL
+        let tify = new Tify({
+            container: '#tify',
+            manifestUrl: manifestBlobUrl,
+            view: "thumbnails"
+        })
+
+        // controling tify from outside - needs exposing on window object
+        // window.tify = tify;
+
+        // example for tiffy event handling
+        tify.ready.then((arg) => {
+            console.log(arg);
+            tify.viewer.addHandler('open', event => {
+                console.log('Tify ready!', event);
+            });
+        })
+
+
+    })();
+
+</script>
+        </div>
+        <div class="tab-pane fade" id="contact-tab-pane" role="tabpanel" aria-labelledby="contact-tab" tabindex="0">
+            <!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- MarkerCluster CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+<!-- Custom CSS: reuse base look and feel -->
+<link rel="stylesheet" href="../../static/apps/map/map.css">
+<link rel="stylesheet" href="../../static/apps/persons_map/persons_map.css">
+
+<!-- Map Container -->
+<div id="map" class="map-container" style="height:100vh;">
+    <!-- Inline navigation panel inside map -->
+    <div id="pm-nav" class="pm-nav">
+        <div class="pm-nav-header">
+            <span id="pm-nav-title" class="pm-nav-title">Stationen</span>
+            <span id="pm-nav-counter" class="pm-nav-counter">0/0</span>
+        </div>
+        <div id="pm-nav-body" class="pm-nav-body">
+            <div id="pm-nav-event" class="pm-nav-event">—</div>
+            <div id="pm-nav-place" class="pm-nav-place">—</div>
+            <div id="pm-nav-date" class="pm-nav-date">—</div>
+            <div class="pm-nav-toggle">
+                <label class="pm-toggle-label">
+                    <input id="pm-toggle-path" type="checkbox" checked>
+                    <span>Verlauf anzeigen</span>
+                </label>
+            </div>
+        </div>
+        <div class="pm-nav-actions">
+            <button id="pm-prev" class="pm-btn" type="button">Zurück</button>
+            <button id="pm-next" class="pm-btn pm-btn-primary" type="button">Weiter</button>
+        </div>
+    </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- MarkerCluster JS -->
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<!-- PolylineDecorator for elegant arrows along paths -->
+<script src="https://unpkg.com/leaflet-polylinedecorator@1.7.0/dist/leaflet.polylineDecorator.min.js"></script>
+
+<!-- Persons Map JS -->
+<script src="../../static/apps/persons_map/persons_map.js"></script>
+            <script>
+                const tabEl = document.querySelector('#contact-tab');
+                let __initialized = false;
+                tabEl.addEventListener('shown.bs.tab', event => {
+                    if (__initialized) return;
+                    initPersonsMap("https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/EVENTS.json/content");
+                })
+            </script>
+        </div>
+        <div class="tab-pane fade" id="disabled-tab-pane" role="tabpanel" aria-labelledby="disabled-tab" tabindex="0">
+            <div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">Name: David Stern (person description)</li>
+                    <li class="list-group-item">Datum: 2026</li>
+                    <li class="list-group-item"><a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/RDF.xml/content"><img alt="RDF" height="30" id="rdf" src="https://gams.uni-graz.at/templates/img/RDF_icon.png" title="RDF"></a> RDF</li>
+                    <li class="list-group-item"><a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/DC.xml/content"><img alt="RDF" height="30" id="rdf" src="https://upload.wikimedia.org/wikipedia/commons/7/7e/DCMI-logo.svg" title="DC"></a> Dublin Core</li>
+                    <li class="list-group-item"><a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299"><img alt="RDF" height="30" id="rdf" src="https://gams.uni-graz.at/templates/img/gams_solo.png" title="Object metadata in the CMS system"></a> Metadatenansicht</li>
+                </ul>
+                <ul class="list-group list-group-flush">
+                    
+                        <li class="list-group-item"><a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/CUSTOM_SEARCH.json/content">CUSTOM_SEARCH.json</a></li>
+                    
+                        <li class="list-group-item"><a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/DC.xml/content">DC.xml</a></li>
+                    
+                        <li class="list-group-item"><a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/EVENTS.json/content">EVENTS.json</a></li>
+                    
+                        <li class="list-group-item"><a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/RDF.xml/content">RDF.xml</a></li>
+                    
+                        <li class="list-group-item"><a target="_blank" href="https://gams-staging.uni-graz.at/api/v1/projects/memo/objects/memo.person.299/datastreams/SEMANTIC_STATEMENTS.ttl/content">SEMANTIC_STATEMENTS.ttl</a></li>
+                    
+                </ul>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="derla-tab-pane" role="tabpanel" aria-labelledby="disabled-tab" tabindex="0">
+            
+                <p class="p-0 m-0 mt-2">Verbundene DERLA-Zeichen:</p>
+            
+            <ul>
+                
+                    
+                
+                    
+                        <li><a target="_blank" href="https://gams.uni-graz.at/o:derla.sty556">https://gams.uni-graz.at/o:derla.sty556</a></li>
+                    
+                
+            </ul>
+        
+        </div>
+
+    </div>
+    
+
+    <br/>
+
+</div>
+
+    
+
+    </main>
+    <footer class="mt-5">
+    <hr/>
+    <div class="container-fluid p-md-5">
+        <div class="row">
+            <div class="col-md-6">
+                <p>Ein Projekt des <a href="https://juedischestudien.uni-graz.at/de/" target="_blank">Centrums für Jüdische Studien</a> der Universität Graz und von <a href="http://www.clio-graz.net/" target="_blank">CLIO. Verein für Geschichts- und Bildungsarbeit</a></p>
+                <a href="https://juedischestudien.uni-graz.at/de/" target="_blank"><img width="200" loading="lazy" src="https://www.erinnern.at/media/e59a27c48eda40fe9c71cf3354747e74/cfjs-logo-mit-uni-graz-logo.jpg/@@images/image-768-8a965967a62eb49160a603cd8001ec0b.jpeg"/></a>
+                <a href="https://dhcraft.org/" target="_blank"><img width="100" loading="lazy" src="https://dhcraft.org/assets/svg/logos/dhcraft_logo_invert.svg"/></a>
+                <a href="http://www.clio-graz.net/" target="_blank"><img width="100" loading="lazy" src="https://igkultur.at/sites/default/files/inline-images/%5Bcurrent-user%3Aaccount-name%5D/%5Bcurrent-date%3Ahtml_date%5D/Clio.jpg"/></a>
+            </div>
+            <div class="col-md-6">
+                <p>Gefördert von: Stadt Graz, Nationalfonds der Republik Österreich, Zukunftsfonds der Republik Österreich, Bundeskanzleramt</p>
+                <p>Kontakt: office.cjs@uni-graz.at</p>
+                <a href="https://www.graz.at/" target="_blank"><img loading="lazy" src="https://www.graz.at/common.ts/g/logo.png"/></a>
+                <a href="https://www.nationalfonds.org/startseite" target="_blank"><img loading="lazy" src="https://www.nationalfonds.org/files/themes/images/logos/30jahre_nf_de_sm.png"/></a>
+                <a href="https://www.zukunftsfonds-austria.at/index.php" target="_blank"><img width="200" loading="lazy" src="https://www.zukunftsfonds-austria.at/images/zf_logo_428.jpg"/></a>
+                <a href="https://www.bundeskanzleramt.gv.at/" target="_blank"><img width="200" loading="lazy" src="https://www.bundeskanzleramt.gv.at/.imaging/default/dam/bka/images/global/BKA_Logo_srgb_w_36hoch.png/jcr:content.png"/></a>
+            </div>
+        </div>
+    </div>
+</footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script type="text/javascript" language="javascript" src="../../static/js/project.js"></script>
+
+
+    <script>
+      window.gams_frog.i18n.translate();
+    </script>
+
+
+  </body>
+</html>
