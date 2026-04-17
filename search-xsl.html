@@ -416,7 +416,7 @@
         );
         SaxonJS.transform({
             stylesheetLocation: "./static/xsl/memo-fulltext-search.sef.json",
-            sourceLocation: `https://gams-staging.uni-graz.at/api/v1/integration/gsearch/fulltext?format=xml&q=${searchQuery}&pageIndex=${currentPage}`,
+            sourceLocation: `https://gams-staging.uni-graz.at/api/integration/v1/gsearch/fulltext?format=xml&q=${searchQuery}&pageIndex=${currentPage}`,
             logLevel: 2,
             destination: "serialized", // we want the result as a string
             stylesheetParams: {
